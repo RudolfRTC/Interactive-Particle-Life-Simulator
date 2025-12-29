@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Particle Network - Cyberpunk Edition</title>
+    <style>
+        /* CSS Reset and Fullscreen Canvas Setup */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        body {
+            width: 100vw;
+            height: 100vh;
+            background: #050505;
+            font-family: 'Courier New', monospace;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+
+        /* Animated Background Gradient */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #0a0015 0%, #050505 50%, #001a1a 100%);
+            animation: gradientShift 15s ease infinite;
+            z-index: -1;
+        }
+
+        @keyframes gradientShift {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 0.3; }
+        }
+
+        /* Info overlay */
+        .info {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            color: #00ffff;
+            font-size: 14px;
+            text-shadow: 0 0 10px #00ffff;
+            z-index: 10;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="particleCanvas"></canvas>
+    <div class="info">
+        HOVER: Attract | CLICK: Repel
+    </div>
+
+    <script>
+        // ==========================================
+        // PARTICLE CLASS
+        // ==========================================
+        class Particle {
+            constructor(x, y, canvas) {
+                this.x = x;
+                this.y = y;
+                this.canvas = canvas;
+
+                // Velocity for natural floating movement
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = (Math.random() - 0.5) * 2;
+
+                // Acceleration (for mouse interaction)
+                this.ax = 0;
+                this.ay = 0;
+
+                // Visual properties
+                this.radius = Math.random() * 2 + 1;
+                this.color = this.getRandomNeonColor();
+
+                // Friction and mass for realistic physics
+                this.friction = 0.98;
+                this.mass = this.radius;
+            }
+
+            // Get random cyberpunk neon color
+            getRandomNeonColor() {
+                const colors = [
+                    '#00ffff', // Cyan
+                    '#ff00ff', // Magenta
+                    '#0080ff', // Electric Blue
+                    '#00ff88', // Aqua Green
+                    '#ff0080'  // Hot Pink
+                ];
+                return colors[Math.floor(Math.random() * colors.length)];
+            }
+
+            // Update particle position and physics
+            update(mouseX, mouseY, mouseDown) {
+                // Apply acceleration to velocity
+                this.vx += this.ax;
+                this.vy += this.ay;
+
+                // Apply friction for smooth deceleration
+                this.vx *= this.friction;
+                this.vy *= this.friction;
+
+                // Update position
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Reset acceleration
+                this.ax = 0;
+                this.ay = 0;
+
+                // Edge bounce with energy preservation
+                if (this.x < this.radius || this.x > this.canvas.width - this.radius) {
+                    this.vx *= -0.8;
+                    this.x = this.x < this.radius ? this.radius : this.canvas.width - this.radius;
+                }
+                if (this.y < this.radius || this.y > this.canvas.height - this.radius) {
+                    this.vy *= -0.8;
+                    this.y = this.y < this.radius ? this.radius : this.canvas.height - this.radius;
+                }
+            }
+
+            // Apply force to particle (for mouse interaction)
+            applyForce(fx, fy) {
+                this.ax += fx / this.mass;
+                this.ay += fy / this.mass;
+            }
+
+            // Draw particle on canvas
+            draw(ctx) {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+
+                // Glow effect
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = this.color;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+
+            // Calculate distance to another particle
+            distanceTo(other) {
+                const dx = other.x - this.x;
+                const dy = other.y - this.y;
+                return Math.sqrt(dx * dx + dy * dy);
+            }
+        }
+
+        // ==========================================
+        // MAIN APPLICATION
+        // ==========================================
+        class ParticleNetwork {
+            constructor() {
+                this.canvas = document.getElementById('particleCanvas');
+                this.ctx = this.canvas.getContext('2d');
+
+                // Mouse state
+                this.mouse = {
+                    x: null,
+                    y: null,
+                    down: false,
+                    radius: 150 // Interaction radius
+                };
+
+                // Particle array
+                this.particles = [];
+                this.particleCount = 150;
+                this.connectionDistance = 120;
+
+                // Initialize
+                this.setupCanvas();
+                this.createParticles();
+                this.setupEventListeners();
+                this.animate();
+            }
+
+            // Setup canvas to fullscreen
+            setupCanvas() {
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
+            }
+
+            // Create initial particles
+            createParticles() {
+                for (let i = 0; i < this.particleCount; i++) {
+                    const x = Math.random() * this.canvas.width;
+                    const y = Math.random() * this.canvas.height;
+                    this.particles.push(new Particle(x, y, this.canvas));
+                }
+            }
+
+            // Setup mouse and window event listeners
+            setupEventListeners() {
+                // Track mouse position
+                window.addEventListener('mousemove', (e) => {
+                    this.mouse.x = e.clientX;
+                    this.mouse.y = e.clientY;
+                });
+
+                // Track mouse click
+                window.addEventListener('mousedown', () => {
+                    this.mouse.down = true;
+                });
+
+                window.addEventListener('mouseup', () => {
+                    this.mouse.down = false;
+                });
+
+                // Handle window resize
+                window.addEventListener('resize', () => {
+                    this.setupCanvas();
+                });
+
+                // Mouse leave - reset position
+                window.addEventListener('mouseleave', () => {
+                    this.mouse.x = null;
+                    this.mouse.y = null;
+                });
+            }
+
+            // Handle mouse interaction with particles
+            handleMouseInteraction() {
+                if (this.mouse.x === null || this.mouse.y === null) return;
+
+                this.particles.forEach(particle => {
+                    const dx = this.mouse.x - particle.x;
+                    const dy = this.mouse.y - particle.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < this.mouse.radius) {
+                        const force = (this.mouse.radius - distance) / this.mouse.radius;
+                        const angle = Math.atan2(dy, dx);
+
+                        if (this.mouse.down) {
+                            // REPEL on click (shockwave effect)
+                            const repelStrength = force * 8;
+                            particle.applyForce(
+                                -Math.cos(angle) * repelStrength,
+                                -Math.sin(angle) * repelStrength
+                            );
+                        } else {
+                            // ATTRACT on hover
+                            const attractStrength = force * 0.6;
+                            particle.applyForce(
+                                Math.cos(angle) * attractStrength,
+                                Math.sin(angle) * attractStrength
+                            );
+                        }
+                    }
+                });
+            }
+
+            // Draw connections between nearby particles
+            drawConnections() {
+                for (let i = 0; i < this.particles.length; i++) {
+                    for (let j = i + 1; j < this.particles.length; j++) {
+                        const distance = this.particles[i].distanceTo(this.particles[j]);
+
+                        if (distance < this.connectionDistance) {
+                            // Calculate opacity based on distance (closer = more opaque)
+                            const opacity = 1 - (distance / this.connectionDistance);
+
+                            this.ctx.beginPath();
+                            this.ctx.moveTo(this.particles[i].x, this.particles[i].y);
+                            this.ctx.lineTo(this.particles[j].x, this.particles[j].y);
+                            this.ctx.strokeStyle = `rgba(0, 255, 255, ${opacity * 0.3})`;
+                            this.ctx.lineWidth = 0.5;
+                            this.ctx.stroke();
+                        }
+                    }
+                }
+            }
+
+            // Main animation loop
+            animate() {
+                // Clear canvas with slight trail effect for smooth motion blur
+                this.ctx.fillStyle = 'rgba(5, 5, 5, 0.15)';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+                // Handle mouse interactions
+                this.handleMouseInteraction();
+
+                // Draw constellation connections first (so particles render on top)
+                this.drawConnections();
+
+                // Update and draw all particles
+                this.particles.forEach(particle => {
+                    particle.update(this.mouse.x, this.mouse.y, this.mouse.down);
+                    particle.draw(this.ctx);
+                });
+
+                // Continue animation loop at 60fps
+                requestAnimationFrame(() => this.animate());
+            }
+        }
+
+        // ==========================================
+        // START APPLICATION
+        // ==========================================
+        window.addEventListener('DOMContentLoaded', () => {
+            new ParticleNetwork();
+        });
+    </script>
+</body>
+</html>
