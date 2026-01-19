@@ -104,7 +104,7 @@
             }
 
             // Update particle position and physics
-            update(mouseX, mouseY, mouseDown) {
+            update() {
                 // Apply acceleration to velocity
                 this.vx += this.ax;
                 this.vy += this.ay;
@@ -140,15 +140,16 @@
 
             // Draw particle on canvas
             draw(ctx) {
+                // Set glow effect before drawing
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = this.color;
+
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
                 ctx.fillStyle = this.color;
                 ctx.fill();
 
-                // Glow effect
-                ctx.shadowBlur = 15;
-                ctx.shadowColor = this.color;
-                ctx.fill();
+                // Reset shadow to prevent affecting other draws
                 ctx.shadowBlur = 0;
             }
 
@@ -192,6 +193,8 @@
             setupCanvas() {
                 this.canvas.width = window.innerWidth;
                 this.canvas.height = window.innerHeight;
+                // Explicitly clear canvas for cross-browser compatibility
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
             }
 
             // Create initial particles
@@ -299,7 +302,7 @@
 
                 // Update and draw all particles
                 this.particles.forEach(particle => {
-                    particle.update(this.mouse.x, this.mouse.y, this.mouse.down);
+                    particle.update();
                     particle.draw(this.ctx);
                 });
 
