@@ -228,10 +228,11 @@
                     this.setupCanvas();
                 });
 
-                // Mouse leave - reset position
+                // Mouse leave - reset position and mouse state
                 window.addEventListener('mouseleave', () => {
                     this.mouse.x = null;
                     this.mouse.y = null;
+                    this.mouse.down = false; // Reset to prevent stuck repel state
                 });
             }
 
